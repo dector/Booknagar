@@ -36,17 +36,21 @@ TEMP_DIR = '__temp'
 PAGES_ON_LIST = 4
 LISTS_IN_BOOKLETE = 5
 
-INPUT_FILE = 'input.ps'
-OUTPUT_PREFIX = 'book'
-PAGES = [[1, 70], [75, 75], [85, 100]]
-CHAPTERS_FIRST_PAGES = [21, 40, 85]
+INPUT_FILE = ''
+OUTPUT_PREFIX = ''
+PAGES = []
+CHAPTERS_FIRST_PAGES = []
 
 def printUsage():
 	'Print script usage information'
-	print '''python booknagar.py [-h] [-v] [--help] [--version]
+	print '''python booknagar.py [-h] [-v] [--help] [--version] [-p pages] [-c chapters] -i input -o output
 
 	-h, --help to view this help
 	-v, --version to print program version number
+	-p to select pages to work with
+	-c to set first pages of chapters (separate with comma)
+	-i to set input file
+	-o to set output prefix
 '''
 
 def printVersion():
@@ -64,7 +68,7 @@ def constructCommand(command, arguments):
 # -v, --version     --> for version output
 
 try:
-	opts, args = getopt.getopt(sys.argv[1:], 'hv', ['help', 'version'])
+	opts, args = getopt.getopt(sys.argv[1:], 'hvp:c:i:o:', ['help', 'version'])
 except getopts.GetoptsError, err:
 	printUsage()
 	sys.exit(2)
@@ -76,7 +80,32 @@ else:
 		elif opt in ('-v', '--version'):
 			printVersion()
 			sys.exit()
+		elif opt == '-p':
+			# parse pages:
+			# 1-70,75,85-100 => [[1, 70], [75, 75], [85, 100]]
+			pages = arg.split(',')
+			for page_range in pages:
+				page = page_range.split('-')
+				if len(page) > 1:
+					PAGES.append([int(page[0]), int(page[1])])
+				else:
+					PAGES.append([int(page[0]), int(page[0])])
+		elif opt == '-c':
+			# parse chapters first pages
+			chapters = arg.split(',')
+			for first_page in chapters:
+				CHAPTERS_FIRST_PAGES.append(int(first_page))
+		elif opt == '-i':
+			INPUT_FILE = arg
+		elif opt == '-o':
+			OUTPUT_PREFIX = arg
 
+if not INPUT_FILE:
+	printUsage()
+	sys.exit(2)
+if not OUTPUT_PREFIX:
+	printUsage()
+	sys.exit(2)
 
 # +------------------------------------+
 # |                                    |
@@ -98,10 +127,13 @@ except:
 else:
 	temp_dir_created = True
 
+if not PAGES:
+	PAGES.append([1, 100]) # debug. count pages in ps file
+
 PAGES.sort()
 CHAPTERS_FIRST_PAGES.sort()
 
-if CHAPTERS_FIRST_PAGES[0] != PAGES[0][0]:
+if CHAPTERS_FIRST_PAGES and CHAPTERS_FIRST_PAGES[0] != PAGES[0][0]:
 	CHAPTERS_FIRST_PAGES.insert(0, PAGES[0][0])
 
 COMMAND_STRING = constructCommand('mkdir', OUTPUT_PREFIX)
