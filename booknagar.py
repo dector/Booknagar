@@ -27,19 +27,34 @@
 # NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-import getopt, sys
+import os, getopt, sys
 
 VERSION = '0.1b'
 
+TEMP_DIR = '__temp'
+
 PAGES_ON_LIST = 4
-PAGES_IN_BOOKLETE = 5
+LISTS_IN_BOOKLETE = 5
+
+INPUT_FILE = 'input.ps'
+OUTPUT_PREFIX = 'book'
+PAGES = [[1, 70], [75, 75], [85, 100]]
+CHAPTERS_FIRST_PAGES = [21, 40, 85]
 
 def printUsage():
-    print '''python booknagar.py [-h] [-v] [--help] [--version]
+	'Print script usage information'
+	print '''python booknagar.py [-h] [-v] [--help] [--version]
+
+	-h, --help to view this help
+	-v, --version to print program version number
 '''
 
 def printVersion():
-    print VERSION
+	'Print script version'
+	print VERSION
+
+def constructCommand(command, arguments):
+	return command + ' ' + arguments + ';'
 
 # Parsing arguments
 # =================
@@ -49,18 +64,18 @@ def printVersion():
 # -v, --version     --> for version output
 
 try:
-    opts, args = getopt.getopt(sys.argv[1:], 'hv', ['help', 'version'])
+	opts, args = getopt.getopt(sys.argv[1:], 'hv', ['help', 'version'])
 except getopts.GetoptsError, err:
-    printUsage()
-    sys.exit(2)
+	printUsage()
+	sys.exit(2)
 else:
-    for opt, arg in opts:
-        if opt in ('-h', '--help'):
-            printUsage()
-            sys.exit()
-        elif opt in ('-v', '--version'):
-            printVersion()
-            sys.exit()
+	for opt, arg in opts:
+		if opt in ('-h', '--help'):
+			printUsage()
+			sys.exit()
+		elif opt in ('-v', '--version'):
+			printVersion()
+			sys.exit()
 
 
 # +------------------------------------+
@@ -73,20 +88,64 @@ else:
 # |        (_)     |  |                |
 # +------------------------------------+
 
-# Chapters selecting
+# Script preparation
 # ==================
 
-# Chapters preparing
-# ==================
+try:
+	os.mkdir(TEMP_DIR)
+except:
+	temp_dir_created = False
+else:
+	temp_dir_created = True
 
-# Spliting chapters on bookletes
-# ==============================
+PAGES.sort()
+CHAPTERS_FIRST_PAGES.sort()
 
-# Setting booklets on pages
-# =========================
+if CHAPTERS_FIRST_PAGES[0] != PAGES[0][0]:
+	CHAPTERS_FIRST_PAGES.insert(0, PAGES[0][0])
 
-# Print
-# =====
+COMMAND_STRING = constructCommand('mkdir', OUTPUT_PREFIX)
+
+# Select chapters ranges
+# ======================
+
+# TODO: need refactoring !!!
+#       I can't believe, that I wrote this code. *facepalm*
+for chapter_first_page in CHAPTERS_FIRST_PAGES:
+	for page_range in PAGES:
+		if chapter_first_page in range(page_range[0], page_range[1]):
+			range_index = PAGES.index(page_range)
+			if page_range[0] != chapter_first_page:
+				PAGES.insert(range_index+1, [page_range[0], chapter_first_page-1])
+				PAGES.insert(range_index+2, [chapter_first_page, page_range[1]])
+				PAGES.remove(page_range)
+
+new_pages = []
+for chapter_index in range(len(CHAPTERS_FIRST_PAGES)):
+	chapter_ranges = []
+	for page_range in PAGES:
+		curr_chap_starts = CHAPTERS_FIRST_PAGES[chapter_index]
+		try:
+			next_chap_starts = CHAPTERS_FIRST_PAGES[chapter_index+1]
+		except IndexError:
+			next_chap_starts = PAGES[len(PAGES)-1][1]
+		if page_range[0] in range(curr_chap_starts, next_chap_starts-1):
+			chapter_ranges.append(page_range)
+	new_pages.append(chapter_ranges)
+PAGES = new_pages
+
+# TODO: debug
+print PAGES
+
+sys.exit(3)
+# debug ends
+
+# Cleaning
+# ========
+
+if temp_dir_created:
+	os.rmdir(TEMP_DIR)
+
 # ----------------------------------------------------------------------------
 
 chapNumber = 19
@@ -94,22 +153,22 @@ pagesNumber = 14
 
 currentBookleteNumber = 1
 
-while (currentBookleteNumber-1) *  PAGES_IN_BOOKLETE < pagesNumber :
-    execStr = "psselect -p "
+while (currentBookleteNumber-1) *  LISTS_IN_BOOKLETE < pagesNumber :
+	execStr = "psselect -p "
 
-    maxPage = PAGES_IN_BOOKLETE  # currentBookleteNumber
-    if maxPage > pagesNumber :
-        maxPage = pagesNumber
+	maxPage = LISTS_IN_BOOKLETE  # currentBookleteNumber
+	if maxPage > pagesNumber :
+		maxPage = pagesNumber
 
-    minPage = (currentBookleteNumber-1)  # PAGES_IN_BOOKLETE + 1
+	minPage = (currentBookleteNumber-1)  # LISTS_IN_BOOKLETE + 1
 
-    chapStr = str(chapNumber) + "_" + str(currentBookleteNumber)
+	chapStr = str(chapNumber) + "_" + str(currentBookleteNumber)
 
-    execStr += str(minPage) + "-" + str(maxPage) + " chap" + str(chapNumber) + ".ps "
-    execStr += "chap" + chapStr + ".ps; psbook chap" + chapStr + ".ps | psnup -2 -l -p a4 > print"
-    execStr += chapStr + ".ps; rm chap" + chapStr + ".ps"
-    print execStr
+	execStr += str(minPage) + "-" + str(maxPage) + " chap" + str(chapNumber) + ".ps "
+	execStr += "chap" + chapStr + ".ps; psbook chap" + chapStr + ".ps | psnup -2 -l -p a4 > print"
+	execStr += chapStr + ".ps; rm chap" + chapStr + ".ps"
+	print execStr
 
-    currentBookleteNumber += 1
+	currentBookleteNumber += 1
 
 print "mkdir " + str(chapNumber) + "; rm -f chap" + str(chapNumber) + "*" + "; mv print" + str(chapNumber) + "_* " + str(chapNumber)
