@@ -134,11 +134,51 @@ for chapter_index in range(len(CHAPTERS_FIRST_PAGES)):
 	new_pages.append(chapter_ranges)
 PAGES = new_pages
 
-# TODO: debug
-print PAGES
+# Page selection
+# ==============
 
-sys.exit(3)
-# debug ends
+for chapter_ranges in PAGES:
+	if chapter_ranges.count == 0:
+		continue;
+
+	chapter_command = '-p '
+	pages_number = 0
+
+	for chapter_pages in chapter_ranges:
+		if chapter_pages[0] == chapter_pages[1]:
+			chapter_command += '%d' % chapter_pages[0]
+		else:
+			chapter_command += '%d-%d' % (chapter_pages[0], chapter_pages[1])
+
+		pages_number += chapter_pages[1] - chapter_pages[0] + 1
+		chapter_command += ','
+
+	pages_number += (4 - pages_number % 4) % 4
+	chapter_number = PAGES.index(chapter_ranges)+1
+	output_filename = '%s/%s_%d.ps' % (TEMP_DIR, OUTPUT_PREFIX, chapter_number)
+	COMMAND_STRING += ' psselect %s %s | psbook > %s;' % (chapter_command[:-1], INPUT_FILE,
+	                                                        output_filename)
+
+	# Create bookletes
+	current_booklete = 1
+	pages_in_booklete = LISTS_IN_BOOKLETE * PAGES_ON_LIST
+
+	input_filename = output_filename
+
+	while (current_booklete-1) * pages_in_booklete < pages_number:
+		min_page = pages_in_booklete * (current_booklete-1) + 1
+
+		max_page = min_page + pages_in_booklete - 1
+		if max_page > pages_number:
+			max_page = pages_number
+		# print 'Chapter: %d, pages: %d' % (chapter_number, pages_number)
+		output_filename = '%s/%s_%s_%s.ps' % (OUTPUT_PREFIX, OUTPUT_PREFIX, chapter_number,
+		                                      current_booklete)
+		COMMAND_STRING += ' psselect -p %d-%d %s | psnup -2 -l -p a4 > %s;\n' % (min_page,
+		                                                                       max_page,
+		                                                                       input_filename,
+		                                                                       output_filename)
+		current_booklete += 1
 
 # Cleaning
 # ========
@@ -146,29 +186,7 @@ sys.exit(3)
 if temp_dir_created:
 	os.rmdir(TEMP_DIR)
 
-# ----------------------------------------------------------------------------
+# Result
+# ======
 
-chapNumber = 19
-pagesNumber = 14
-
-currentBookleteNumber = 1
-
-while (currentBookleteNumber-1) *  LISTS_IN_BOOKLETE < pagesNumber :
-	execStr = "psselect -p "
-
-	maxPage = LISTS_IN_BOOKLETE  # currentBookleteNumber
-	if maxPage > pagesNumber :
-		maxPage = pagesNumber
-
-	minPage = (currentBookleteNumber-1)  # LISTS_IN_BOOKLETE + 1
-
-	chapStr = str(chapNumber) + "_" + str(currentBookleteNumber)
-
-	execStr += str(minPage) + "-" + str(maxPage) + " chap" + str(chapNumber) + ".ps "
-	execStr += "chap" + chapStr + ".ps; psbook chap" + chapStr + ".ps | psnup -2 -l -p a4 > print"
-	execStr += chapStr + ".ps; rm chap" + chapStr + ".ps"
-	print execStr
-
-	currentBookleteNumber += 1
-
-print "mkdir " + str(chapNumber) + "; rm -f chap" + str(chapNumber) + "*" + "; mv print" + str(chapNumber) + "_* " + str(chapNumber)
+print COMMAND_STRING
